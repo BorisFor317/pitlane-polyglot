@@ -1,0 +1,60 @@
+# ---------- Secrets & local config ----------
+.env
+.env.*
+!.env.example
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Editors / IDEs ----------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------- Local database data ----------
+# (only if you switch from a named Docker volume to a bind mount)
+pgdata/
+*.dump
+
+# ---------- Go (impl/go) ----------
+impl/go/bin/
+*.test
+*.out
+coverage.*
+go.work.sum
+
+# ---------- Rust (impl/rust) ----------
+impl/rust/target/
+**/*.rs.bk
+
+# ---------- Node.js / TypeScript (impl/node) ----------
+node_modules/
+impl/node/dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+
+# ---------- C++ (impl/cpp) ----------
+impl/cpp/build/
+impl/cpp/cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+
+# ---------- Logs & temp ----------
+*.log
+tmp/
