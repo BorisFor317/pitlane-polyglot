@@ -2,13 +2,7 @@
 hide circle
 skinparam linetype ortho
 
-entity disciplines {
-  * id : bigint <<PK>>
-  * name : text <<UNIQUE>>
-  * description : text
-}
-
-entity "users" as users {
+entity users {
   * id : bigint <<PK>>
   --
   * email : text
@@ -39,9 +33,9 @@ entity customers {
 entity instructors {
   * user_id : bigint <<PK, FK>>
   --
-  * created_at : timestamptz
   * bio : text
     teaching_started_on : date
+  * created_at : timestamptz
 }
 
 entity admins {
@@ -53,6 +47,13 @@ entity admins {
 users ||--o| customers : "is an"
 users ||--o| instructors : "is an"
 users ||--o| admins : "is an"
+
+entity disciplines {
+  * id : bigint <<PK>>
+  --
+  * name : text <<UNIQUE>>
+  * description : text
+}
 
 enum experience_level {
   beginner
@@ -72,19 +73,19 @@ customer_discipline_levels ..> experience_level : uses
 customers ||--o{ customer_discipline_levels
 disciplines ||--o{ customer_discipline_levels
 
-enum drivetrain_type {
-  fwd
-  rwd
-  awd
-  4wd
-}
-
 enum transmission {
   manual
   automatic
   dct
   cvt
   sequential
+}
+
+enum drivetrain_type {
+  fwd
+  rwd
+  awd
+  4wd
 }
 
 enum vehicle_status {
@@ -96,7 +97,6 @@ enum vehicle_status {
 entity vehicles {
   * id : bigint <<PK>>
   --
-  * created_at : timestamptz
   * make : text
   * model : text
   * manufacturing_year : smallint
@@ -105,9 +105,13 @@ entity vehicles {
   * drivetrain_type : drivetrain_type
   * status : vehicle_status
     license_plate : text <<UNIQUE>>
+  * created_at : timestamptz
+  * updated_at : timestamptz
 }
 
 note left of vehicles
+  updated_at with trigger
+
   1920 <= manufacturing_year <= 2100
   horsepower > 0
 end note 
