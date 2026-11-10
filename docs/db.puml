@@ -1,0 +1,301 @@
+@startuml
+hide circle
+skinparam linetype ortho
+
+entity disciplines {
+  * id : bigint <<PK>>
+  * name : text <<UNIQUE>>
+  * description : text
+}
+
+entity "users" as users {
+  * id : bigint <<PK>>
+  --
+  * email : text
+  * password_hash : text 
+  * name : text
+  * surname : text
+  * nickname : text <<UNIQUE>>
+    ' avatar_key : text
+  * created_at : timestamptz
+    last_login : timestamptz
+}
+
+note right of users
+  UNIQUE INDEX ON LOWER(email)
+
+  ' avatar_key points to
+  ' external object storage
+end note
+
+entity customers {
+  * user_id : bigint <<PK, FK>>
+  --
+  * phone_number : text
+  * driving_license_number : text
+  * created_at : timestamptz
+}
+
+entity instructors {
+  * user_id : bigint <<PK, FK>>
+  --
+  * created_at : timestamptz
+  * bio : text
+    teaching_started_on : date
+}
+
+entity admins {
+  * user_id : bigint <<PK, FK>>
+  --
+  * created_at : timestamptz
+}
+
+users ||--o| customers : "is an"
+users ||--o| instructors : "is an"
+users ||--o| admins : "is an"
+
+enum experience_level {
+  beginner
+  intermediate
+  advanced
+}
+
+entity customer_discipline_levels {
+  * customer_id : bigint <<PK, FK>>
+  * discipline_id : bigint <<PK, FK>>
+  --
+  * level : experience_level
+  * updated_at : timestamptz
+}
+
+customer_discipline_levels ..> experience_level : uses
+customers ||--o{ customer_discipline_levels
+disciplines ||--o{ customer_discipline_levels
+
+enum drivetrain_type {
+  fwd
+  rwd
+  awd
+  4wd
+}
+
+enum transmission {
+  manual
+  automatic
+  dct
+  cvt
+  sequential
+}
+
+enum vehicle_status {
+  available
+  maintenance
+  retired
+}
+
+entity vehicles {
+  * id : bigint <<PK>>
+  --
+  * created_at : timestamptz
+  * make : text
+  * model : text
+  * manufacturing_year : smallint
+  * horsepower : smallint
+  * transmission : transmission
+  * drivetrain_type : drivetrain_type
+  * status : vehicle_status
+    license_plate : text <<UNIQUE>>
+}
+
+note left of vehicles
+  1920 <= manufacturing_year <= 2100
+  horsepower > 0
+end note 
+
+vehicles ..> vehicle_status : uses
+vehicles ..> transmission : uses
+vehicles ..> drivetrain_type : uses
+
+entity vehicle_disciplines {
+  * vehicle_id : bigint <<FK, PK>>
+  * discipline_id : bigint <<FK, PK>> 
+}
+
+vehicles ||--o{ vehicle_disciplines
+disciplines ||--o{ vehicle_disciplines
+
+entity lessons {
+  * id : bigint <<PK>>
+  * discipline_id : bigint <<FK>>
+  --
+  * name : text
+  * description : text
+  * duration : interval
+  * price : numeric(12, 2)
+  * minimum_experience_level : experience_level
+  * max_students_per_slot : smallint 
+  * created_at : timestamptz
+}
+
+note top of lessons
+  UNIQUE (discipline_id, name)
+
+  max_students_per_slot > 0
+  price >= 0
+end note
+
+disciplines ||--o{ lessons
+
+entity lesson_prerequisites {
+  * lesson_id : bigint <<PK, FK>>
+  * required_lesson_id : bigint <<PK, FK>>
+}
+
+lessons ||--o{ lesson_prerequisites : lesson_id
+lessons ||--o{ lesson_prerequisites : required_lesson_id
+
+note left of lesson_prerequisites
+  check for **recursive**
+  prerequisites
+  lesson_id != required_lesson_id
+end note
+
+entity instructor_lesson_certifications {
+  * instructor_id : bigint <<PK, FK>>
+  * lesson_id : bigint <<PK, FK>>
+  --
+  * created_at : timestamptz
+}
+
+instructors ||--o{ instructor_lesson_certifications
+lessons ||--o{ instructor_lesson_certifications
+
+entity slots {
+  * id : bigint <<PK, UQ1>>
+  * lesson_id : bigint <<FK1>>
+    instructor_id : bigint <<FK1>>
+  --
+  * created_at : timestamptz
+  * begin_time : timestamptz <<UQ1>>
+  * end_time : timestamptz <<UQ1>>
+    cancelled_at : timestamptz
+}
+
+note left of slots
+  FK1 (lesson_id, instructor_id)
+      -> instructor_lesson_certifications (lesson_id, instructor_id)
+
+  UNIQUE (id, begin_time, end_time)
+
+  instructor couldn't teach
+  two overlapping slots
+
+  end_time > begin_time
+end note
+
+instructor_lesson_certifications ||--o{ slots
+
+enum booking_status {
+  pending
+  confirmed
+  checked_in
+  completed
+  no_show
+  cancelled
+}
+
+entity bookings {
+  * id : bigint <<PK>>
+  * slot_id : bigint <<FK1>>
+  * begin_time : timestamptz <<FK1>>
+  * end_time : timestamptz <<FK1>>
+  * customer_id : bigint <<FK2>>
+  * vehicle_id : bigint <<FK3>>
+  --
+  * price : numeric(12, 2)
+  * created_at : timestamptz
+  * status : booking_status
+}
+
+note left of bookings
+  FK1 (slot_id, begin_time, end_time) 
+      -> slots (id, begin_time, end_time)
+      ON UPDATE CASCADE 
+
+  change in status triggers adding
+  to the booking_status_changes
+end note
+
+slots ||--o{ bookings
+customers ||--o{ bookings
+vehicles ||--o{ bookings
+bookings ..> booking_status : uses
+
+enum booking_change_reason {
+  customer_request
+  slot_cancelled
+  car_unavailable
+}
+
+entity booking_status_changes {
+  * id : bigint <<PK>>
+  * booking_id : bigint <<FK>>
+    changed_by_id : bigint <<FK>>
+  --
+  * status : booking_status
+  * changed_at : timestamptz
+    reason : booking_change_reason
+}
+
+note left of booking_status_changes
+  reason **required** if
+  status is cancelled
+end note
+
+bookings ||--o{ booking_status_changes
+users |o--o{ booking_status_changes
+booking_status_changes ..> booking_status : uses
+booking_status_changes ..> booking_change_reason : uses
+
+enum payment_method {
+  cash
+  card
+}
+
+entity payments {
+  * booking_id : bigint <<PK, FK>>
+  --
+  * created_at : timestamptz
+    method : payment_method
+  * amount : numeric(12, 2)
+}
+
+note left of payments
+  amount >= 0
+  
+  method **required**
+  when amount > 0
+end note
+
+bookings ||--o| payments
+payments ..> payment_method : uses
+
+entity refunds {
+  * booking_id : bigint <<PK, FK>>
+  --
+  * created_at : timestamptz
+    method : payment_method
+  * amount : numeric(12, 2)
+}
+
+note right of refunds
+  amount >= 0
+  
+  method **required**
+  when amount > 0
+end note
+
+bookings ||--o| refunds
+refunds ..> payment_method : uses
+
+@enduml
